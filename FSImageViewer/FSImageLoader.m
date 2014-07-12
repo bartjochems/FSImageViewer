@@ -25,6 +25,7 @@
 #import <EGOCache/EGOCache.h>
 #import "FSImageLoader.h"
 #import "AFImageRequestOperation.h"
+#import <LUKeychainAccess/LUKeychainAccess.h>
 
 @implementation FSImageLoader {
     NSMutableArray *runningRequests;
