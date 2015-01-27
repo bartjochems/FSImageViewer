@@ -43,6 +43,7 @@
 
 /// Main scrollView
 @property(strong, nonatomic) UIScrollView *scrollView;
+@property(assign, nonatomic) BOOL pushed;
 
 /// Disable image sharing
 @property(assign, nonatomic, getter = isSharingDisabled) BOOL sharingDisabled;
