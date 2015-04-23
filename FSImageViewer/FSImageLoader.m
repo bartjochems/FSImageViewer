@@ -46,7 +46,7 @@
         self.timeoutInterval = 30.0;
         runningRequests = [[NSMutableArray alloc] init];
     }
-
+    
     return self;
 }
 
@@ -70,17 +70,17 @@
 }
 
 - (void)loadImageForURL:(NSURL *)aURL image:(void (^)(UIImage *image, NSError *error))imageBlock {
-
+    
     if (!aURL) {
         NSError *error = [NSError errorWithDomain:@"de.felixschulze.fsimageloader" code:412 userInfo:@{
-                NSLocalizedDescriptionKey : @"You must set a url"
-        }];
+                                                                                                       NSLocalizedDescriptionKey : @"You must set a url"
+                                                                                                       }];
         imageBlock(nil, error);
     };
     NSString *cacheKey = [NSString stringWithFormat:@"FSImageLoader-%u", [[aURL description] hash]];
-
+    
     UIImage *anImage = [[EGOCache globalCache] imageForKey:cacheKey];
-
+    
     if (anImage) {
         if (imageBlock) {
             imageBlock(anImage, nil);
@@ -88,20 +88,17 @@
     }
     else {
         [self cancelRequestForUrl:aURL];
-
+        
         NSMutableURLRequest *urlRequest = [[NSMutableURLRequest alloc] initWithURL:aURL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:_timeoutInterval];
         
-        NSString *username = [[LUKeychainAccess standardKeychainAccess] stringForKey:@"username"];
-        NSString *password = [[LUKeychainAccess standardKeychainAccess] stringForKey:@"password"];
+        NSString *token = [[LUKeychainAccess standardKeychainAccess] stringForKey:@"token"];
         
-        NSString *basicAuthCredentials = [NSString stringWithFormat:@"%@:%@", username, password];
-        NSString *auth = [NSString stringWithFormat:@"Basic %@", [self base64Encoding:basicAuthCredentials]];
-        
-        [urlRequest addValue:auth forHTTPHeaderField:@"Authorization"];
+        [[LUKeychainAccess standardKeychainAccess] setString:token forKey:@"token"];
+        [urlRequest addValue:token forHTTPHeaderField:@"Authorization"];
         
         AFImageRequestOperation *imageRequestOperation = [[AFImageRequestOperation alloc] initWithRequest:urlRequest];
         [runningRequests addObject:imageRequestOperation];
-
+        
         __weak AFImageRequestOperation *imageRequestOperationForBlock = imageRequestOperation;
         [imageRequestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
             UIImage *image = responseObject;
@@ -116,38 +113,9 @@
             }
             [runningRequests removeObject:imageRequestOperationForBlock];
         }];
-
+        
         [imageRequestOperation start];
     }
-}
-
-- (NSString *)base64Encoding:(NSString *)string {
-    NSData *data = [NSData dataWithBytes:[string UTF8String] length:[string lengthOfBytesUsingEncoding:NSUTF8StringEncoding]];
-    NSUInteger length = [data length];
-    NSMutableData *mutableData = [NSMutableData dataWithLength:((length + 2) / 3) * 4];
-    
-    uint8_t *input = (uint8_t *)[data bytes];
-    uint8_t *output = (uint8_t *)[mutableData mutableBytes];
-    
-    for (NSUInteger i = 0; i < length; i += 3) {
-        NSUInteger value = 0;
-        for (NSUInteger j = i; j < (i + 3); j++) {
-            value <<= 8;
-            if (j < length) {
-                value |= (0xFF & input[j]);
-            }
-        }
-        
-        static uint8_t const kAFBase64EncodingTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        
-        NSUInteger idx = (i / 3) * 4;
-        output[idx + 0] = kAFBase64EncodingTable[(value >> 18) & 0x3F];
-        output[idx + 1] = kAFBase64EncodingTable[(value >> 12) & 0x3F];
-        output[idx + 2] = (i + 1) < length ? kAFBase64EncodingTable[(value >> 6)  & 0x3F] : '=';
-        output[idx + 3] = (i + 2) < length ? kAFBase64EncodingTable[(value >> 0)  & 0x3F] : '=';
-    }
-    
-    return [[NSString alloc] initWithData:mutableData encoding:NSASCIIStringEncoding];
 }
 
 @end
