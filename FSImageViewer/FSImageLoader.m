@@ -24,7 +24,8 @@
 
 #import <EGOCache/EGOCache.h>
 #import "FSImageLoader.h"
-#import "AFHTTPRequestOperation.h"
+#import "AFImageRequestOperation.h"
+#import <LUKeychainAccess/LUKeychainAccess.h>
 
 @implementation FSImageLoader {
     NSMutableArray *runningRequests;
@@ -45,7 +46,7 @@
         self.timeoutInterval = 30.0;
         runningRequests = [[NSMutableArray alloc] init];
     }
-
+    
     return self;
 }
 
@@ -54,13 +55,13 @@
 }
 
 - (void)cancelAllRequests {
-    for (AFHTTPRequestOperation *imageRequestOperation in runningRequests) {
+    for (AFImageRequestOperation *imageRequestOperation in runningRequests) {
         [imageRequestOperation cancel];
     }
 }
 
 - (void)cancelRequestForUrl:(NSURL *)aURL {
-    for (AFHTTPRequestOperation *imageRequestOperation in runningRequests) {
+    for (AFImageRequestOperation *imageRequestOperation in runningRequests) {
         if ([imageRequestOperation.request.URL isEqual:aURL]) {
             [imageRequestOperation cancel];
             break;
@@ -69,17 +70,17 @@
 }
 
 - (void)loadImageForURL:(NSURL *)aURL image:(void (^)(UIImage *image, NSError *error))imageBlock {
-
+    
     if (!aURL) {
         NSError *error = [NSError errorWithDomain:@"de.felixschulze.fsimageloader" code:412 userInfo:@{
-                NSLocalizedDescriptionKey : @"You must set a url"
-        }];
+                                                                                                       NSLocalizedDescriptionKey : @"You must set a url"
+                                                                                                       }];
         imageBlock(nil, error);
     };
-    NSString *cacheKey = [NSString stringWithFormat:@"FSImageLoader-%lu", (unsigned long)[[aURL description] hash]];
-
+    NSString *cacheKey = [NSString stringWithFormat:@"FSImageLoader-%u", [[aURL description] hash]];
+    
     UIImage *anImage = [[EGOCache globalCache] imageForKey:cacheKey];
-
+    
     if (anImage) {
         if (imageBlock) {
             imageBlock(anImage, nil);
@@ -87,13 +88,18 @@
     }
     else {
         [self cancelRequestForUrl:aURL];
-
-        NSURLRequest *urlRequest = [[NSURLRequest alloc] initWithURL:aURL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:_timeoutInterval];
-        AFHTTPRequestOperation *imageRequestOperation = [[AFHTTPRequestOperation alloc] initWithRequest:urlRequest];
-        imageRequestOperation.responseSerializer = [AFImageResponseSerializer serializer];
+        
+        NSMutableURLRequest *urlRequest = [[NSMutableURLRequest alloc] initWithURL:aURL cachePolicy:NSURLRequestReturnCacheDataElseLoad timeoutInterval:_timeoutInterval];
+        
+        NSString *token = [[LUKeychainAccess standardKeychainAccess] stringForKey:@"token"];
+        
+        [[LUKeychainAccess standardKeychainAccess] setString:token forKey:@"token"];
+        [urlRequest addValue:token forHTTPHeaderField:@"Authorization"];
+        
+        AFImageRequestOperation *imageRequestOperation = [[AFImageRequestOperation alloc] initWithRequest:urlRequest];
         [runningRequests addObject:imageRequestOperation];
-        __weak AFHTTPRequestOperation *imageRequestOperationForBlock = imageRequestOperation;
-
+        
+        __weak AFImageRequestOperation *imageRequestOperationForBlock = imageRequestOperation;
         [imageRequestOperation setCompletionBlockWithSuccess:^(AFHTTPRequestOperation *operation, id responseObject) {
             UIImage *image = responseObject;
             [[EGOCache globalCache] setImage:image forKey:cacheKey];
@@ -107,6 +113,7 @@
             }
             [runningRequests removeObject:imageRequestOperationForBlock];
         }];
+        
         [imageRequestOperation start];
     }
 }
