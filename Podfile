@@ -3,3 +3,4 @@ inhibit_all_warnings!
 
 pod 'AFNetworking', '~>1.3.3', '< 2.0'
 pod 'EGOCache', '~> 2.0'
+pod 'LUKeychainAccess', '~> 2.0'
