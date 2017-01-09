@@ -20,5 +20,6 @@ Pod::Spec.new do |s|
 
   s.dependency 'AFNetworking', '~> 1.3.3', '< 2.0'
   s.dependency 'EGOCache', '~> 2.0'
+  s.dependency 'LUKeychainAccess', '~> 2.0'
 
 end
